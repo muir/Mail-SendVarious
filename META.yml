@@ -1,0 +1,12 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Mail-SendVarious
+version:      0.3
+version_from: lib/Mail/SendVarious.pm
+installdirs:  site
+requires:
+    IO::Handle:                    0
+    Net::SMTP:                     0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

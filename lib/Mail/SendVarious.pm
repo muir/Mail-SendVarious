@@ -5,13 +5,12 @@ package Mail::SendVarious;
 
 use strict;
 use warnings;
-use Mail::SendVarious::Fork;
 use Net::SMTP;
-use IO::Handle;
+use IO::Pipe;
 use Carp;
 require Exporter;
 
-our $VERSION = 0.3;
+our $VERSION = 0.4;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(sendmail);
 our @EXPORT_OK = qw($mail_error make_message @to_rejected @mail_hostlist @mail_command);
@@ -21,6 +20,8 @@ our @to_rejected;
 
 our @mail_hostlist;
 our @mail_command;
+
+our %net_smtp_options;
 
 @mail_hostlist = qw(127.0.0.1)
 	unless @mail_hostlist;
@@ -52,7 +53,7 @@ sub splitto
 {
 	my $to = shift;
 	return @$to if ref $to;
-	return () unless $to;
+	return unless $to;
 	$to =~ s/".*?"//;
 	$to =~ s/[^<>,]*<(.*?)>[^<>,]/$1/g;
 	return split(',',$to);
@@ -83,10 +84,11 @@ sub make_message
 		$message .= $options{message}			if $options{message};
 	} else {
 		$message .= $options{header}			if $options{header};
-		$message .= $options{body}			if $options{body};
+		$message .= "\n".$options{body}			if $options{body};
 	}
 
-	my @to = splitto($options{envelope_to}) || (splitto($options{to}), splitto($options{cc}));
+	my @to = splitto($options{envelope_to});
+	@to = (splitto($options{to}), splitto($options{cc})) unless @to;
 
 	push(@to, splitto($options{bcc}));
 
@@ -115,8 +117,8 @@ sub sendmail
 	for my $host (@hostlist) {
 		my @rejects;
 		my $smtp;
-		unless (($smtp = new Net::SMTP $host)) {
-			error("Could not establish SMTP connection to $host", $errorlog);
+		unless ($smtp = Net::SMTP->new($host, %net_smtp_options)) {
+			error("Could not establish SMTP connection to $host: $!", $errorlog);
 			next;
 		}
 
@@ -152,17 +154,17 @@ sub sendmail
 
 		if (@rejects) {
 			@to_rejected = @rejects;
-			&$debuglog("Mail from $smtpfrom to @rejects rejected, other mail accepted");
+			$debuglog->("Mail from $smtpfrom to @rejects rejected, other mail accepted");
 		}
 
 		$smtp->quit();
 
-		&$debuglog("Mail from $smtpfrom to @to injected via $host");
+		$debuglog->("Mail from $smtpfrom to @to injected via $host");
 		$mail_error = '';
 		return 1;
 	}
 
-	&$debuglog("Mail from $smtpfrom to @to, falling back to sendmail");
+	$debuglog->("Mail from $smtpfrom to @to, falling back to sendmail");
 	#
 	# sending via smtp failed, try the local sendmail instead
 	# 
@@ -177,8 +179,9 @@ sub sendmail
 		? splitto($options{mail_commnd})
 		: @mail_command;
 
-	my $MAIL = new IO::Handle;
-	eval { open_to_child($MAIL, @command, @sm, @to) } or do {
+
+	my $MAIL;
+	eval { $MAIL = open_to_child(@command, @sm, @to) } or do {
 		error("Could not fork/exec child @command: $@", $errorlog);
 		return 0;
 	};
@@ -194,12 +197,20 @@ sub sendmail
 	return 1;
 }
 
+sub open_to_child
+{
+	my ($command, @args) = @_;
+	my $pipe = IO::Pipe->new();
+	$pipe->writer($command, @args);
+	return $pipe;
+}
+
 sub error
 {
 	my ($error, $logger) = @_;
 	$mail_error = $error;
 	if ($logger) {
-		&$logger($error);
+		$logger->($error);
 	} else {
 		print STDERR "$error\n";
 	}

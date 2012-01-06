@@ -1,0 +1,8 @@
+README
+lib/Mail/SendVarious.pm
+lib/Mail/SendVarious.pod
+lib/Mail/SendVarious/Fork.pm
+Makefile.PL
+CHANGELOG
+t/sendvarious.t
+MANIFEST

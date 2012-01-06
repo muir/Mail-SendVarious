@@ -8,8 +8,32 @@ WriteMakefile(
 	dist		=> { COMPRESS => 'gzip', SUFFIX => 'gz' },
 	PREREQ_PM	=> {
 		'Net::SMTP'	=> 0,
-		'IO::Handle'	=> 0,
+		'IO::Pipe'	=> 0,
 	},
+	BUILD_REQUIRES => {
+		'Test::SharedFork'	=> 0,
+		'Test::More'		=> 0,
+		'Net::SMTP::Receive'	=> 0,
+		'File::Slurp'		=> 0,
+		'autodie'		=> 0,
+		'YAML'			=> 0,
+		'Test::Deep'		=> 0,
+		'Time::HiRes'		=> 0,
+		'List::Util'		=> 0,
+	},
+	($] >= 5.005 
+		?	
+			(
+				ABSTRACT	=> 'Send mail via SMTP, fall back to sendmail',
+				AUTHOR		=> 'David Muir Sharnoff <cpan@dave.sharnoff.org>',
+				META_MERGE     => {
+					resources  => {
+						repository => 'http://github.com/muir/Mail-SendVarious',
+					},
+				},
+			) 
+		: ()
+	),
 );
 
 package MY;
